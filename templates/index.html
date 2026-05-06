@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiabetesIQ — Risk Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <main class="wrapper">
+
+    <!-- ── HEADER (unchanged) ── -->
+    <header class="site-header">
+      <div class="logo">
+        <span class="logo-icon">◎</span>
+        <span class="logo-text">DiabetesIQ</span>
+      </div>
+      <p class="tagline">AI-powered early-risk screening for Type 2 Diabetes</p>
+      <div class="model-badges">
+        <span class="badge">LR Accuracy&nbsp;<strong>{{ lr_accuracy }}%</strong></span>
+        <span class="badge">RF Accuracy&nbsp;<strong>{{ rf_accuracy }}%</strong></span>
+      </div>
+    </header>
+
+    <!-- ── ERROR BANNER (unchanged) ── -->
+    {% if error %}
+    <div class="alert alert-error">⚠️ {{ error }}</div>
+    {% endif %}
+
+    <!-- ════════════════════════════════════════════
+         RESULT SECTION  (enhanced)
+    ═════════════════════════════════════════════ -->
+    {% if prediction is defined and prediction is not none %}
+
+    <!-- ── FEATURE 2: EMERGENCY ALERT ── -->
+    {% if emergency_alert %}
+    <div class="alert alert-emergency">
+      <span class="emergency-icon">🚨</span>
+      <div>
+        <strong>Emergency Alert</strong>
+        <p>{{ emergency_alert }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── RESULT CARD with Risk Level badge ── -->
+    <section class="result-card {% if prediction %}high-risk{% else %}low-risk{% endif %}">
+      <div class="result-top-row">
+        <div class="result-icon-title">
+          <div class="result-icon">{% if prediction %}⚠️{% else %}✅{% endif %}</div>
+          <h2 class="result-title">
+            {% if prediction %}High Risk Detected{% else %}Low Risk Detected{% endif %}
+          </h2>
+        </div>
+        <!-- FEATURE 6: Risk Level Badge -->
+        <div class="risk-level-badge risk-{{ risk_level | lower }}">
+          {{ risk_level }} Risk
+        </div>
+      </div>
+
+      <p class="result-sub">
+        Model: <strong>{{ model_label }}</strong> &nbsp;·&nbsp;
+        Accuracy: <strong>{{ model_acc }}%</strong>
+      </p>
+
+      <!-- FEATURE 6: Probability Progress Bar -->
+      <div class="gauge-wrap">
+        <div class="gauge-label">
+          Diabetes Probability
+          <span class="gauge-pct">{{ probability }}%</span>
+        </div>
+        <div class="gauge-track">
+          <div class="gauge-fill {% if prediction %}fill-danger{% else %}fill-safe{% endif %}"
+               data-width="{{ probability }}" style="width:0%"></div>
+        </div>
+        <div class="gauge-markers">
+          <span>0%</span><span>Low Risk</span><span>Medium</span><span>High Risk</span><span>100%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FEATURE 1: DYNAMIC AI TIPS ── -->
+    <section class="panel-card">
+      <h3 class="panel-title">
+        <span class="panel-icon">🧠</span> Personalised AI Health Insights
+      </h3>
+      <ul class="tips-list">
+        {% for tip in tips %}
+        <li>{{ tip }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <!-- ── FEATURE 4: DAILY PLAN ── -->
+    <section class="panel-card panel-plan">
+      <h3 class="panel-title">
+        <span class="panel-icon">📋</span> Your Daily Action Plan
+      </h3>
+      <div class="plan-grid">
+        <div class="plan-item">
+          <div class="plan-label">🌅 Morning</div>
+          <div class="plan-text">{{ daily_plan.morning }}</div>
+        </div>
+        <div class="plan-item">
+          <div class="plan-label">🥗 Diet</div>
+          <div class="plan-text">{{ daily_plan.diet }}</div>
+        </div>
+        <div class="plan-item">
+          <div class="plan-label">🏃 Exercise</div>
+          <div class="plan-text">{{ daily_plan.exercise }}</div>
+        </div>
+        <div class="plan-item">
+          <div class="plan-label">🌙 Evening</div>
+          <div class="plan-text">{{ daily_plan.evening }}</div>
+        </div>
+        <div class="plan-item plan-item-full">
+          <div class="plan-label">💧 Hydration</div>
+          <div class="plan-text">{{ daily_plan.hydration }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FEATURE 3: DOWNLOAD REPORT BUTTON ── -->
+    <form action="/download_report" method="POST" id="reportForm">
+      <!-- Pass all prediction data as hidden fields -->
+      <input type="hidden" name="prediction"  value="{{ prediction }}">
+      <input type="hidden" name="probability" value="{{ probability }}">
+      <input type="hidden" name="risk_level"  value="{{ risk_level }}">
+      <input type="hidden" name="model_label" value="{{ model_label }}">
+      <input type="hidden" name="model_acc"   value="{{ model_acc }}">
+      <!-- Join tips and plan with || separator for PDF -->
+      <input type="hidden" name="tips_joined" value="{{ tips | join('||') }}">
+      <input type="hidden" name="plan_joined"
+             value="{{ daily_plan.morning }}||{{ daily_plan.diet }}||{{ daily_plan.exercise }}||{{ daily_plan.evening }}||{{ daily_plan.hydration }}">
+      <!-- Patient values -->
+      {% if form_data %}
+      {% for key, val in form_data.items() %}
+      <input type="hidden" name="{{ key }}" value="{{ val }}">
+      {% endfor %}
+      {% endif %}
+      <button type="submit" class="btn-download">
+        <span>📄</span> Download Health Report (PDF)
+      </button>
+    </form>
+
+    <!-- ── FEATURE 5: DOCTOR CARDS ── -->
+    <section class="panel-card">
+      <h3 class="panel-title">
+        <span class="panel-icon">🏥</span> Recommended Specialists Near You
+      </h3>
+      <p class="panel-sub">Connect with these verified diabetes specialists</p>
+      <div class="doctors-grid">
+        {% for doc in doctors %}
+        <div class="doctor-card">
+          <div class="doctor-avatar">{{ doc.name[3] }}</div>
+          <div class="doctor-info">
+            <div class="doctor-name">{{ doc.name }}</div>
+            <div class="doctor-spec">{{ doc.specialty }}</div>
+            <div class="doctor-hospital">🏥 {{ doc.hospital }}</div>
+            <div class="doctor-meta">
+              <span class="doctor-exp">⏱ {{ doc.experience }}</span>
+              <span class="doctor-avail">📅 {{ doc.available }}</span>
+            </div>
+            <div class="doctor-bottom">
+              <div class="doctor-rating">
+                {% for i in range(5) %}
+                  {% if i < (doc.rating | int) %}★{% else %}☆{% endif %}
+                {% endfor %}
+                <span>{{ doc.rating }}</span>
+              </div>
+              <a href="tel:{{ doc.phone }}" class="doctor-phone">📞 {{ doc.phone }}</a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <!-- Google search link (preserved) -->
+      <a href="https://www.google.com/search?q=diabetologist+near+me" target="_blank" class="btn-google-search">
+        🔍 Find More Doctors on Google
+      </a>
+    </section>
+
+    {% endif %}
+    <!-- END result section -->
+
+    <!-- ── INPUT FORM (unchanged structure) ── -->
+    <section class="form-card">
+      <h2 class="form-title">Enter Your Health Data</h2>
+      <p class="form-subtitle">All fields are required. Values should reflect recent lab results.</p>
+
+      <form action="/predict" method="POST" novalidate>
+        <div class="fields-grid">
+
+          <div class="field">
+            <label for="Pregnancies">Pregnancies</label>
+            <input type="number" id="Pregnancies" name="Pregnancies" min="0" max="20" step="1"
+                   placeholder="e.g. 2" value="{{ form_data.Pregnancies if form_data else '' }}" required />
+            <span class="hint">Number of times pregnant</span>
+          </div>
+
+          <div class="field">
+            <label for="Glucose">Glucose <em>(mg/dL)</em></label>
+            <input type="number" id="Glucose" name="Glucose" min="0" max="300" step="0.1"
+                   placeholder="e.g. 120" value="{{ form_data.Glucose if form_data else '' }}" required />
+            <span class="hint">2-hour plasma glucose (OGTT)</span>
+          </div>
+
+          <div class="field">
+            <label for="BloodPressure">Blood Pressure <em>(mmHg)</em></label>
+            <input type="number" id="BloodPressure" name="BloodPressure" min="0" max="200" step="0.1"
+                   placeholder="e.g. 72" value="{{ form_data.BloodPressure if form_data else '' }}" required />
+            <span class="hint">Diastolic blood pressure</span>
+          </div>
+
+          <div class="field">
+            <label for="SkinThickness">Skin Thickness <em>(mm)</em></label>
+            <input type="number" id="SkinThickness" name="SkinThickness" min="0" max="100" step="0.1"
+                   placeholder="e.g. 23" value="{{ form_data.SkinThickness if form_data else '' }}" required />
+            <span class="hint">Triceps skin fold thickness</span>
+          </div>
+
+          <div class="field">
+            <label for="Insulin">Insulin <em>(μU/mL)</em></label>
+            <input type="number" id="Insulin" name="Insulin" min="0" max="900" step="0.1"
+                   placeholder="e.g. 85" value="{{ form_data.Insulin if form_data else '' }}" required />
+            <span class="hint">2-hour serum insulin</span>
+          </div>
+
+          <div class="field">
+            <label for="BMI">BMI <em>(kg/m²)</em></label>
+            <input type="number" id="BMI" name="BMI" min="0" max="70" step="0.1"
+                   placeholder="e.g. 28.5" value="{{ form_data.BMI if form_data else '' }}" required />
+            <span class="hint">Body mass index</span>
+          </div>
+
+          <div class="field field-wide">
+            <label for="DiabetesPedigreeFunction">Diabetes Pedigree Function</label>
+            <input type="number" id="DiabetesPedigreeFunction" name="DiabetesPedigreeFunction"
+                   min="0" max="3" step="0.001" placeholder="e.g. 0.627"
+                   value="{{ form_data.DiabetesPedigreeFunction if form_data else '' }}" required />
+            <span class="hint">Genetic likelihood score (0.078 – 2.420)</span>
+          </div>
+
+          <div class="field">
+            <label for="Age">Age <em>(years)</em></label>
+            <input type="number" id="Age" name="Age" min="1" max="120" step="1"
+                   placeholder="e.g. 35" value="{{ form_data.Age if form_data else '' }}" required />
+            <span class="hint">Your current age</span>
+          </div>
+
+        </div>
+
+        <fieldset class="model-selector">
+          <legend>Choose Model</legend>
+          <label class="radio-pill {% if not model_choice or model_choice == 'lr' %}active{% endif %}">
+            <input type="radio" name="model_choice" value="lr"
+                   {% if not model_choice or model_choice == 'lr' %}checked{% endif %} />
+            Logistic Regression
+          </label>
+          <label class="radio-pill {% if model_choice == 'rf' %}active{% endif %}">
+            <input type="radio" name="model_choice" value="rf"
+                   {% if model_choice == 'rf' %}checked{% endif %} />
+            Random Forest
+          </label>
+        </fieldset>
+
+        <button type="submit" class="btn-predict">
+          <span class="btn-text">Predict Diabetes Risk</span>
+          <span class="btn-icon">→</span>
+        </button>
+      </form>
+    </section>
+
+    <footer class="site-footer">
+      <p>⚕️ This tool is for <strong>educational purposes only</strong> and is not a substitute for professional medical advice.</p>
+      <p>Built with Flask · Scikit-learn · PIMA Indians Diabetes Dataset</p>
+    </footer>
+
+  </main>
+
+  <script>
+    // Radio pill highlight (unchanged)
+    document.querySelectorAll('input[name="model_choice"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        document.querySelectorAll('.radio-pill').forEach(p => p.classList.remove('active'));
+        radio.closest('.radio-pill').classList.add('active');
+      });
+    });
+
+    // Animate gauge fill on load
+    window.addEventListener('load', () => {
+      document.querySelectorAll('.gauge-fill').forEach(fill => {
+        const target = fill.dataset.width || fill.style.width;
+        fill.style.width = '0%';
+        setTimeout(() => { fill.style.width = target + '%'; }, 150);
+      });
+
+      // Scroll to result after prediction
+      const alert = document.querySelector('.alert-emergency') || document.querySelector('.result-card');
+      if (alert) {
+        setTimeout(() => alert.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+      }
+    });
+  </script>
+</body>
+</html>
